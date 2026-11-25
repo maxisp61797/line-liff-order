@@ -125,13 +125,13 @@
   </div>
 
   <script>
-    // ====== 請替換成你的實際數值 ======
-    const LIFF_ID = '你的_LIFF_ID';
+    // ====== 已填入你的 LIFF ID，請再填入 GAS /exec 網址 ======
+    const LIFF_ID = '2012794936-ZuKGJyM6';
     const GAS_WEB_APP_URL = '你的_GAS_EXEC_網址';
-    // ===================================
+    // ========================================================
 
     let menuItems = [];
-    let cart = {}; // { itemId: qty }
+    let cart = {};
     let profile = { displayName: 'LINE 顧客', userId: '' };
 
     async function initApp() {
@@ -144,7 +144,6 @@
         profile = await liff.getProfile();
         document.getElementById('userInfo').textContent = `點餐顧客：${profile.displayName}`;
       } catch (err) {
-        // 若在一般瀏覽器測試，仍可繼續載入菜單
         document.getElementById('userInfo').textContent = '非 LINE 環境測試模式';
       }
 
@@ -233,7 +232,6 @@
       btn.textContent = '送出中...';
 
       try {
-        // 使用 text/plain 可避免部分瀏覽器對 GAS 跨網域觸發複雜 preflight 阻擋
         const res = await fetch(GAS_WEB_APP_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
