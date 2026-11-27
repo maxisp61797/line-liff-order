@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>線上點餐</title>
+  <title>測試點餐小舖 - 線上點餐</title>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     body {
@@ -88,19 +88,21 @@
       justify-content: space-between;
       align-items: center;
       font-size: 14px;
-      padding: 6px 0;
-      border-bottom: 1px dashed #f0f0f0;
+      padding: 8px 0;
+      border-bottom: 1px dashed #eee;
     }
     .detail-row:last-child {
       border-bottom: none;
     }
     .detail-sub {
       font-size: 12px;
-      color: #777;
+      color: #666;
+      margin-top: 2px;
     }
     .detail-subtotal {
-      font-weight: 600;
+      font-weight: 700;
       color: #222;
+      font-size: 15px;
     }
     .receipt-badge {
       display: inline-block;
@@ -196,7 +198,7 @@
   <div id="orderView">
     <div id="menuList" class="status-msg">正在載入菜單...</div>
 
-    <!-- 已選明細確認區（有選購時自動顯示） -->
+    <!-- 已選明細確認區 -->
     <div id="cartSummaryCard" class="cart-card" style="display: none;">
       <div class="section-title">
         <span>已選餐點明細</span>
@@ -206,15 +208,15 @@
     </div>
   </div>
 
-  <!-- 送出後的訂單收據畫面 -->
+  <!-- 送出後的完整訂單收據畫面 -->
   <div id="receiptView" class="receipt-card" style="display: none;">
     <div class="receipt-badge">訂單已成立</div>
-    <div style="font-size: 18px; font-weight: 700; margin-bottom: 4px;">感謝您的訂購！</div>
+    <div style="font-size: 18px; font-weight: 700; margin-bottom: 4px;">您的訂購明細</div>
     <div id="receiptMeta" style="font-size: 13px; color: #666; margin-bottom: 12px;"></div>
-    <div class="section-title"><span>本次訂購明細</span></div>
+    <div class="section-title"><span>品項／單價／數量／小計</span></div>
     <div id="receiptDetailList"></div>
     <div class="receipt-total">
-      <span>訂單總金額</span>
+      <span>總金額</span>
       <span id="receiptTotalAmount">$0</span>
     </div>
     <div class="action-row">
@@ -315,9 +317,9 @@
           <div class="detail-row">
             <div>
               <div style="font-weight: 600;">${escapeHtml(item.name)}</div>
-              <div class="detail-sub">單價 $${item.price} × ${item.qty} 份</div>
+              <div class="detail-sub">單價 $${item.price} × 數量 ${item.qty}</div>
             </div>
-            <div class="detail-subtotal">$${subtotal}</div>
+            <div class="detail-subtotal">小計 $${subtotal}</div>
           </div>
         `;
       }).join('');
@@ -339,7 +341,8 @@
 
       document.getElementById('totalAmount').textContent = total;
       document.getElementById('submitBtn').disabled = totalCount === 0;
-      document.getElementById('footerSubText').textContent = totalCount > 0 ? `已選 ${selectedItems.length} 項，共 ${totalCount} 份` : '尚未選擇餐點';
+      document.getElementById('footerSubText').textContent =
+        totalCount > 0 ? `已選 ${selectedItems.length} 項，共 ${totalCount} 份` : '尚未選擇餐點';
 
       const cartCard = document.getElementById('cartSummaryCard');
       if (selectedItems.length > 0) {
@@ -381,11 +384,12 @@
         const result = await res.json();
         if (!result.ok) throw new Error(result.error || '送單失敗');
 
-        // 顯示完整訂單收據明細
+        const finalTotal = result.totalAmount ?? selectedItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+
         document.getElementById('receiptMeta').innerHTML =
-          `單號：<strong>${escapeHtml(result.orderId)}</strong><br>訂購人：${escapeHtml(profile.displayName)}`;
+          `單號：<strong>${escapeHtml(result.orderId)}</strong><br>顧客：${escapeHtml(profile.displayName)}`;
         document.getElementById('receiptDetailList').innerHTML = buildDetailRowsHtml(selectedItems);
-        document.getElementById('receiptTotalAmount').textContent = `$${result.totalAmount}`;
+        document.getElementById('receiptTotalAmount').textContent = `$${finalTotal}`;
 
         document.getElementById('orderView').style.display = 'none';
         document.getElementById('footerBar').style.display = 'none';
