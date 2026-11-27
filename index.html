@@ -9,11 +9,11 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
-      padding: 16px 16px 96px 16px;
+      padding: 16px 16px 110px 16px;
       background: #f5f6f8;
       color: #222;
     }
-    .header {
+    .header, .cart-card, .receipt-card {
       background: #fff;
       padding: 14px 16px;
       border-radius: 12px;
@@ -74,6 +74,81 @@
       text-align: center;
       font-weight: 600;
     }
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      padding: 6px 0;
+      border-bottom: 1px dashed #f0f0f0;
+    }
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+    .detail-sub {
+      font-size: 12px;
+      color: #777;
+    }
+    .detail-subtotal {
+      font-weight: 600;
+      color: #222;
+    }
+    .receipt-badge {
+      display: inline-block;
+      background: #e6f9ed;
+      color: #06c755;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+    }
+    .receipt-total {
+      display: flex;
+      justify-content: space-between;
+      font-size: 17px;
+      font-weight: 700;
+      color: #06c755;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 2px solid #eee;
+    }
+    .action-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .btn-secondary {
+      flex: 1;
+      background: #f0f2f5;
+      color: #333;
+      border: none;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-primary-full {
+      flex: 1;
+      background: #06c755;
+      color: #fff;
+      border: none;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
     .footer {
       position: fixed;
       left: 0;
@@ -117,18 +192,48 @@
     <div id="userInfo" class="user-info">正在初始化 LINE 帳號...</div>
   </div>
 
-  <div id="menuList" class="status-msg">正在載入菜單...</div>
+  <!-- 點餐主畫面 -->
+  <div id="orderView">
+    <div id="menuList" class="status-msg">正在載入菜單...</div>
 
-  <div class="footer">
-    <div class="total-text">總計：$<span id="totalAmount">0</span></div>
+    <!-- 已選明細確認區（有選購時自動顯示） -->
+    <div id="cartSummaryCard" class="cart-card" style="display: none;">
+      <div class="section-title">
+        <span>已選餐點明細</span>
+        <span id="totalItemCount" style="color:#666; font-weight:500;">共 0 份</span>
+      </div>
+      <div id="cartDetailList"></div>
+    </div>
+  </div>
+
+  <!-- 送出後的訂單收據畫面 -->
+  <div id="receiptView" class="receipt-card" style="display: none;">
+    <div class="receipt-badge">訂單已成立</div>
+    <div style="font-size: 18px; font-weight: 700; margin-bottom: 4px;">感謝您的訂購！</div>
+    <div id="receiptMeta" style="font-size: 13px; color: #666; margin-bottom: 12px;"></div>
+    <div class="section-title"><span>本次訂購明細</span></div>
+    <div id="receiptDetailList"></div>
+    <div class="receipt-total">
+      <span>訂單總金額</span>
+      <span id="receiptTotalAmount">$0</span>
+    </div>
+    <div class="action-row">
+      <button class="btn-secondary" onclick="resetToOrder()">繼續加點</button>
+      <button class="btn-primary-full" onclick="closeLiffWindow()">完成並關閉</button>
+    </div>
+  </div>
+
+  <div id="footerBar" class="footer">
+    <div>
+      <div class="total-text">總計：$<span id="totalAmount">0</span></div>
+      <div id="footerSubText" style="font-size: 12px; color: #666;">尚未選擇餐點</div>
+    </div>
     <button id="submitBtn" class="submit-btn" onclick="submitOrder()" disabled>送出訂單</button>
   </div>
 
   <script>
-    // ====== 已填入你的 LIFF ID，請把下方 GAS_WEB_APP_URL 換成你的 /exec 網址 ======
     const LIFF_ID = '2012794936-ZuKGJyM6';
-    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyuLWSRiP_d4BYo_KDwle4cVGlW0gOF_K73TJQsk39Yw7MVqm8LtrLsSWKWiE6elaDlaw/exec';
-    // =========================================================================
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyuLWSRiP_d4BYo_KDw1e4cVG1WOgOF_K73TJQsk39Yw7MVqm8LtrLsSWKWiE6e1aD1aw/exec';
 
     let menuItems = [];
     let cart = {};
@@ -203,16 +308,47 @@
       updateSummary();
     }
 
+    function buildDetailRowsHtml(items) {
+      return items.map(item => {
+        const subtotal = item.price * item.qty;
+        return `
+          <div class="detail-row">
+            <div>
+              <div style="font-weight: 600;">${escapeHtml(item.name)}</div>
+              <div class="detail-sub">單價 $${item.price} × ${item.qty} 份</div>
+            </div>
+            <div class="detail-subtotal">$${subtotal}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
     function updateSummary() {
       let total = 0;
       let totalCount = 0;
+      const selectedItems = [];
+
       menuItems.forEach(item => {
         const qty = cart[item.id] || 0;
-        total += item.price * qty;
-        totalCount += qty;
+        if (qty > 0) {
+          total += item.price * qty;
+          totalCount += qty;
+          selectedItems.push({ ...item, qty });
+        }
       });
+
       document.getElementById('totalAmount').textContent = total;
       document.getElementById('submitBtn').disabled = totalCount === 0;
+      document.getElementById('footerSubText').textContent = totalCount > 0 ? `已選 ${selectedItems.length} 項，共 ${totalCount} 份` : '尚未選擇餐點';
+
+      const cartCard = document.getElementById('cartSummaryCard');
+      if (selectedItems.length > 0) {
+        cartCard.style.display = 'block';
+        document.getElementById('totalItemCount').textContent = `共 ${totalCount} 份`;
+        document.getElementById('cartDetailList').innerHTML = buildDetailRowsHtml(selectedItems);
+      } else {
+        cartCard.style.display = 'none';
+      }
     }
 
     async function submitOrder() {
@@ -245,17 +381,38 @@
         const result = await res.json();
         if (!result.ok) throw new Error(result.error || '送單失敗');
 
-        alert(`訂單成立！\n單號：${result.orderId}\n總金額：$${result.totalAmount}`);
-        cart = {};
-        renderMenu();
+        // 顯示完整訂單收據明細
+        document.getElementById('receiptMeta').innerHTML =
+          `單號：<strong>${escapeHtml(result.orderId)}</strong><br>訂購人：${escapeHtml(profile.displayName)}`;
+        document.getElementById('receiptDetailList').innerHTML = buildDetailRowsHtml(selectedItems);
+        document.getElementById('receiptTotalAmount').textContent = `$${result.totalAmount}`;
 
-        if (typeof liff !== 'undefined' && liff.isInClient()) {
-          liff.closeWindow();
-        }
+        document.getElementById('orderView').style.display = 'none';
+        document.getElementById('footerBar').style.display = 'none';
+        document.getElementById('receiptView').style.display = 'block';
+        window.scrollTo(0, 0);
+
+        cart = {};
+        btn.textContent = '送出訂單';
       } catch (err) {
         alert(`送出訂單時發生錯誤：${err.message}`);
         btn.disabled = false;
         btn.textContent = '送出訂單';
+      }
+    }
+
+    function resetToOrder() {
+      document.getElementById('receiptView').style.display = 'none';
+      document.getElementById('orderView').style.display = 'block';
+      document.getElementById('footerBar').style.display = 'flex';
+      renderMenu();
+    }
+
+    function closeLiffWindow() {
+      if (typeof liff !== 'undefined' && liff.isInClient()) {
+        liff.closeWindow();
+      } else {
+        resetToOrder();
       }
     }
 
