@@ -132,6 +132,14 @@
       border-radius: 20px;
       margin-bottom: 8px;
     }
+    .receipt-tip {
+      font-size: 13px;
+      color: #555;
+      background: #f8f9fa;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
     .receipt-total {
       display: flex;
       justify-content: space-between;
@@ -159,7 +167,7 @@
       cursor: pointer;
     }
     .btn-primary-full {
-      flex: 1;
+      flex: 1.4;
       background: #06c755;
       color: #fff;
       border: none;
@@ -237,9 +245,12 @@
       <span>總金額</span>
       <span id="receiptTotalAmount">$0</span>
     </div>
+    <div class="receipt-tip">
+      已送出並通知，可出示此畫面或按「完成並關閉」；若要加點，按「繼續加點」會保留原本品項一起顯示。
+    </div>
     <div class="action-row">
-      <button class="btn-secondary" onclick="resetToOrder()">繼續加點</button>
       <button class="btn-primary-full" onclick="closeLiffWindow()">完成並關閉</button>
+      <button class="btn-secondary" onclick="continueAddingItems()">繼續加點</button>
     </div>
   </div>
 
@@ -253,10 +264,11 @@
 
   <script>
     const LIFF_ID = '2012794936-ZuKGJyM6';
-    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyuLWSRiP_d4BYo_KDwle4cVGlW0gOF_K73TJQsk39Yw7MVqm8LtrLsSWKWiE6elaDlaw/exec';
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyuLWSRiP_d4BYo_KDwle4cVGlW0gOF_K73TJQsk39Yw7MVqm8LtrLsSWKWiE6e1aDlaw/exec';
 
     let menuItems = [];
     let cart = {};
+    let lastOrderedItems = [];
     let profile = { displayName: 'LINE 顧客', userId: '' };
 
     async function initApp() {
@@ -423,6 +435,7 @@
         if (!result.ok) throw new Error(result.error || '送單失敗');
 
         const finalTotal = result.totalAmount ?? selectedItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+        lastOrderedItems = selectedItems.map(i => ({ ...i }));
 
         document.getElementById('receiptMeta').innerHTML =
           `單號：<strong>${escapeHtml(result.orderId)}</strong><br>顧客：${escapeHtml(profile.displayName)}`;
@@ -443,18 +456,31 @@
       }
     }
 
-    function resetToOrder() {
+    function continueAddingItems() {
+      const restoredCart = {};
+      lastOrderedItems.forEach(item => {
+        if (item.qty > 0) {
+          restoredCart[item.id] = (restoredCart[item.id] || 0) + item.qty;
+        }
+      });
+      cart = restoredCart;
+
       document.getElementById('receiptView').style.display = 'none';
       document.getElementById('orderView').style.display = 'block';
       document.getElementById('footerBar').style.display = 'flex';
       renderMenu();
+      window.scrollTo(0, 0);
     }
 
     function closeLiffWindow() {
       if (typeof liff !== 'undefined' && liff.isInClient()) {
         liff.closeWindow();
       } else {
-        resetToOrder();
+        document.getElementById('receiptView').style.display = 'none';
+        document.getElementById('orderView').style.display = 'block';
+        document.getElementById('footerBar').style.display = 'flex';
+        cart = {};
+        renderMenu();
       }
     }
 
