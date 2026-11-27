@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <title>測試點餐小舖 - 線上點餐</title>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
@@ -200,8 +201,11 @@
     }
     .status-msg {
       text-align: center;
-      padding: 24px;
+      padding: 20px;
       color: #666;
+      background: #fff;
+      border-radius: 12px;
+      word-break: break-all;
     }
   </style>
 </head>
@@ -265,7 +269,7 @@
         profile = await liff.getProfile();
         document.getElementById('userInfo').textContent = `點餐顧客：${profile.displayName}`;
       } catch (err) {
-        document.getElementById('userInfo').textContent = '非 LINE 環境測試模式';
+        document.getElementById('userInfo').textContent = `LIFF 提示：${err && err.message ? err.message : err}`;
       }
 
       await loadMenu();
@@ -273,9 +277,16 @@
 
     async function loadMenu() {
       const container = document.getElementById('menuList');
+      const url = `${GAS_WEB_APP_URL}?action=menu&_t=${Date.now()}`;
       try {
-        const res = await fetch(`${GAS_WEB_APP_URL}?action=menu`);
-        const data = await res.json();
+        const res = await fetch(url, { cache: 'no-store' });
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (parseErr) {
+          throw new Error(`回傳非 JSON（HTTP ${res.status}）：${text.slice(0, 120)}`);
+        }
         if (!data.ok) throw new Error(data.error || '讀取菜單失敗');
 
         menuItems = data.items || [];
@@ -285,7 +296,12 @@
         }
         renderMenu();
       } catch (err) {
-        container.innerHTML = `<div class="status-msg">菜單載入失敗：${err.message}</div>`;
+        container.innerHTML = `
+          <div class="status-msg">
+            <div style="color:#d93025; font-weight:700; margin-bottom:6px;">菜單載入失敗：${escapeHtml(err && err.message ? err.message : String(err))}</div>
+            <div style="font-size:12px; color:#666;">目前位置：${escapeHtml(location.href)}</div>
+          </div>
+        `;
       }
     }
 
