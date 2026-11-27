@@ -14,7 +14,7 @@
       background: #f5f6f8;
       color: #222;
     }
-    .header, .cart-card, .receipt-card {
+    .header, .cart-card, .receipt-card, .category-bar {
       background: #fff;
       padding: 14px 16px;
       border-radius: 12px;
@@ -37,6 +37,51 @@
       font-size: 13px;
       color: #666;
       margin-top: 4px;
+    }
+    .category-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 10px 12px;
+      scrollbar-width: none;
+    }
+    .category-bar::-webkit-scrollbar {
+      display: none;
+    }
+    .cat-btn {
+      border: 1px solid #e0e3e8;
+      background: #f8f9fb;
+      color: #444;
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .cat-btn.active {
+      background: #06c755;
+      border-color: #06c755;
+      color: #fff;
+    }
+    .group-block {
+      margin-bottom: 16px;
+    }
+    .group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: #222;
+      margin: 4px 2px 10px 2px;
+      padding-left: 10px;
+      border-left: 4px solid #06c755;
+    }
+    .group-count {
+      font-size: 12px;
+      font-weight: 500;
+      color: #777;
     }
     .item-card {
       background: #fff;
@@ -238,13 +283,14 @@
   <div class="header">
     <div class="header-top">
       <div style="font-size: 18px; font-weight: 700;">測試點餐小舖</div>
-      <span class="ver-tag">v2.0</span>
+      <span class="ver-tag">v2.2</span>
     </div>
     <div id="userInfo" class="user-info">正在初始化 LINE 帳號...</div>
   </div>
 
   <!-- 步驟 1：選餐畫面 -->
   <div id="orderView">
+    <div id="categoryBar" class="category-bar" style="display: none;"></div>
     <div id="menuList" class="status-msg">正在載入菜單...</div>
 
     <div id="cartSummaryCard" class="cart-card" style="display: none;">
@@ -286,9 +332,10 @@
 
   <script>
     const LIFF_ID = '2012794936-ZuKGJyM6';
-    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyuLWSRiP_d4BYo_KDwle4cVGlW0gOF_K73TJQsk39Yw7MVqm8LtrLsSWKWiE6elaDlaw/exec';
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyuLWSRiP_d4BYo_KDwle4cVGlW0gOF_K73TJQsk39Yw7MVqm8LtrLsSWKWiE6e1aDlaw/exec';
 
     let menuItems = [];
+    let selectedCategory = 'ALL';
     let cart = {};
     let profile = { displayName: 'LINE 顧客', userId: '' };
 
@@ -324,11 +371,14 @@
 
         menuItems = data.items || [];
         if (menuItems.length === 0) {
+          document.getElementById('categoryBar').style.display = 'none';
           container.innerHTML = '<div class="status-msg">目前沒有上架品項</div>';
           return;
         }
+        renderCategoryBar();
         renderMenu();
       } catch (err) {
+        document.getElementById('categoryBar').style.display = 'none';
         container.innerHTML = `
           <div class="status-msg">
             <div style="color:#d93025; font-weight:700; margin-bottom:6px;">菜單載入失敗：${escapeHtml(err && err.message ? err.message : String(err))}</div>
@@ -338,34 +388,96 @@
       }
     }
 
+    function getCategoriesInOrder() {
+      const seen = new Set();
+      const cats = [];
+      menuItems.forEach(item => {
+        const cat = String(item.category || '').trim() || '其他';
+        if (!seen.has(cat)) {
+          seen.add(cat);
+          cats.push(cat);
+        }
+      });
+      return cats;
+    }
+
+    function renderCategoryBar() {
+      const bar = document.getElementById('categoryBar');
+      const cats = getCategoriesInOrder();
+
+      if (selectedCategory !== 'ALL' && !cats.includes(selectedCategory)) {
+        selectedCategory = 'ALL';
+      }
+
+      if (cats.length === 0) {
+        bar.style.display = 'none';
+        return;
+      }
+
+      bar.style.display = 'flex';
+      const buttons = [
+        `<button class="cat-btn ${selectedCategory === 'ALL' ? 'active' : ''}" onclick="selectCategory('ALL')">全部</button>`,
+        ...cats.map(cat => {
+          const activeClass = selectedCategory === cat ? 'active' : '';
+          return `<button class="cat-btn ${activeClass}" onclick="selectCategory(${JSON.stringify(cat)})">${escapeHtml(cat)}</button>`;
+        })
+      ];
+      bar.innerHTML = buttons.join('');
+    }
+
+    function selectCategory(cat) {
+      selectedCategory = cat;
+      renderCategoryBar();
+      renderMenu();
+    }
+
+    function renderItemCardHtml(item) {
+      const qty = cart[item.id] || 0;
+      const safeUrl = sanitizeImageUrl(item.imageUrl);
+      const thumbHtml = safeUrl
+        ? `<img class="item-thumb" src="${escapeHtml(safeUrl)}" alt="${escapeHtml(item.name)}" onerror="this.style.display='none'" />`
+        : '';
+
+      return `
+        <div class="item-card">
+          <div class="item-left">
+            ${thumbHtml}
+            <div>
+              <div class="item-title">${escapeHtml(item.name)}</div>
+              <div class="item-meta">${escapeHtml(item.category || '其他')}</div>
+              <div class="item-price">$${item.price}</div>
+            </div>
+          </div>
+          <div class="qty-box">
+            <button class="qty-btn" onclick="changeQty('${item.id}', -1)">-</button>
+            <span class="qty-num" id="qty-${item.id}">${qty}</span>
+            <button class="qty-btn primary" onclick="changeQty('${item.id}', 1)">+</button>
+          </div>
+        </div>
+      `;
+    }
+
     function renderMenu() {
       const container = document.getElementById('menuList');
       container.className = '';
-      container.innerHTML = menuItems.map(item => {
-        const qty = cart[item.id] || 0;
-        const safeUrl = sanitizeImageUrl(item.imageUrl);
-        const thumbHtml = safeUrl
-          ? `<img class="item-thumb" src="${escapeHtml(safeUrl)}" alt="${escapeHtml(item.name)}" onerror="this.style.display='none'" />`
-          : '';
 
+      const cats = getCategoriesInOrder();
+      const targetCats = selectedCategory === 'ALL' ? cats : [selectedCategory];
+
+      container.innerHTML = targetCats.map(cat => {
+        const itemsInCat = menuItems.filter(i => (String(i.category || '').trim() || '其他') === cat);
+        if (itemsInCat.length === 0) return '';
         return `
-          <div class="item-card">
-            <div class="item-left">
-              ${thumbHtml}
-              <div>
-                <div class="item-title">${escapeHtml(item.name)}</div>
-                <div class="item-meta">${escapeHtml(item.category)}</div>
-                <div class="item-price">$${item.price}</div>
-              </div>
+          <div class="group-block">
+            <div class="group-header">
+              <span>${escapeHtml(cat)}</span>
+              <span class="group-count">${itemsInCat.length} 項</span>
             </div>
-            <div class="qty-box">
-              <button class="qty-btn" onclick="changeQty('${item.id}', -1)">-</button>
-              <span class="qty-num" id="qty-${item.id}">${qty}</span>
-              <button class="qty-btn primary" onclick="changeQty('${item.id}', 1)">+</button>
-            </div>
+            ${itemsInCat.map(renderItemCardHtml).join('')}
           </div>
         `;
       }).join('');
+
       updateSummary();
     }
 
@@ -427,7 +539,6 @@
       }
     }
 
-    // 步驟 1 -> 步驟 2：進入明細核對（此時尚未送出給商店）
     function openConfirmView() {
       const selectedItems = getSelectedItems();
       if (selectedItems.length === 0) return;
@@ -444,16 +555,15 @@
       window.scrollTo(0, 0);
     }
 
-    // 按「繼續加點」：保留原本 cart 裡所有已選品項回到點餐頁
     function continueAddingItems() {
       document.getElementById('receiptView').style.display = 'none';
       document.getElementById('orderView').style.display = 'block';
       document.getElementById('footerBar').style.display = 'flex';
+      renderCategoryBar();
       renderMenu();
       window.scrollTo(0, 0);
     }
 
-    // 按「完成並關閉」：正式寫入試算表、推播給商店並關閉視窗
     async function confirmAndSendOrder() {
       const sendBtn = document.getElementById('finalSubmitBtn');
       const backBtn = document.getElementById('backToAddBtn');
