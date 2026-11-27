@@ -27,13 +27,29 @@
     }
     .item-card {
       background: #fff;
-      padding: 14px 16px;
+      padding: 12px 14px;
       border-radius: 12px;
       margin-bottom: 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 12px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .item-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .item-thumb {
+      width: 64px;
+      height: 64px;
+      border-radius: 10px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #f0f2f5;
+      border: 1px solid #eee;
     }
     .item-title {
       font-size: 16px;
@@ -53,7 +69,8 @@
     .qty-box {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      flex-shrink: 0;
     }
     .qty-btn {
       width: 32px;
@@ -194,11 +211,9 @@
     <div id="userInfo" class="user-info">正在初始化 LINE 帳號...</div>
   </div>
 
-  <!-- 點餐主畫面 -->
   <div id="orderView">
     <div id="menuList" class="status-msg">正在載入菜單...</div>
 
-    <!-- 已選明細確認區 -->
     <div id="cartSummaryCard" class="cart-card" style="display: none;">
       <div class="section-title">
         <span>已選餐點明細</span>
@@ -208,7 +223,6 @@
     </div>
   </div>
 
-  <!-- 送出後的完整訂單收據畫面 -->
   <div id="receiptView" class="receipt-card" style="display: none;">
     <div class="receipt-badge">訂單已成立</div>
     <div style="font-size: 18px; font-weight: 700; margin-bottom: 4px;">您的訂購明細</div>
@@ -235,7 +249,7 @@
 
   <script>
     const LIFF_ID = '2012794936-ZuKGJyM6';
-    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyuLWSRiP_d4BYo_KDwle4cVGlW0gOF_K73TJQsk39Yw7MVqm8LtrLsSWKWiE6elaDlaw/exec';
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyuLWSRiP_d4BYo_KDw1e4cVG1WOgOF_K73TJQsk39Yw7MVqm8LtrLsSWKWiE6e1aD1aw/exec';
 
     let menuItems = [];
     let cart = {};
@@ -280,12 +294,20 @@
       container.className = '';
       container.innerHTML = menuItems.map(item => {
         const qty = cart[item.id] || 0;
+        const safeUrl = sanitizeImageUrl(item.imageUrl);
+        const thumbHtml = safeUrl
+          ? `<img class="item-thumb" src="${escapeHtml(safeUrl)}" alt="${escapeHtml(item.name)}" onerror="this.style.display='none'" />`
+          : '';
+
         return `
           <div class="item-card">
-            <div>
-              <div class="item-title">${escapeHtml(item.name)}</div>
-              <div class="item-meta">${escapeHtml(item.category)}</div>
-              <div class="item-price">$${item.price}</div>
+            <div class="item-left">
+              ${thumbHtml}
+              <div>
+                <div class="item-title">${escapeHtml(item.name)}</div>
+                <div class="item-meta">${escapeHtml(item.category)}</div>
+                <div class="item-price">$${item.price}</div>
+              </div>
             </div>
             <div class="qty-box">
               <button class="qty-btn" onclick="changeQty('${item.id}', -1)">-</button>
@@ -418,6 +440,15 @@
       } else {
         resetToOrder();
       }
+    }
+
+    function sanitizeImageUrl(url) {
+      if (!url) return '';
+      const trimmed = String(url).trim();
+      if (/^https?:\/\//i.test(trimmed)) {
+        return trimmed;
+      }
+      return '';
     }
 
     function escapeHtml(str) {
