@@ -58,6 +58,7 @@
       font-weight: 600;
       white-space: nowrap;
       cursor: pointer;
+      touch-action: manipulation;
     }
     .cat-btn.active {
       background: #06c755;
@@ -283,7 +284,7 @@
   <div class="header">
     <div class="header-top">
       <div style="font-size: 18px; font-weight: 700;">測試點餐小舖</div>
-      <span class="ver-tag">v2.2</span>
+      <span class="ver-tag">v2.3</span>
     </div>
     <div id="userInfo" class="user-info">正在初始化 LINE 帳號...</div>
   </div>
@@ -317,8 +318,8 @@
       請確認餐點內容，按下<strong>「完成並關閉」</strong>才會正式送出訂單給商店；若還想加點，請按<strong>「繼續加點」</strong>。
     </div>
     <div class="action-row">
-      <button id="finalSubmitBtn" class="btn-primary-full" onclick="confirmAndSendOrder()">完成並關閉</button>
-      <button id="backToAddBtn" class="btn-secondary" onclick="continueAddingItems()">繼續加點</button>
+      <button type="button" id="finalSubmitBtn" class="btn-primary-full" onclick="confirmAndSendOrder()">完成並關閉</button>
+      <button type="button" id="backToAddBtn" class="btn-secondary" onclick="continueAddingItems()">繼續加點</button>
     </div>
   </div>
 
@@ -327,19 +328,25 @@
       <div class="total-text">總計：$<span id="totalAmount">0</span></div>
       <div id="footerSubText" style="font-size: 12px; color: #666;">尚未選擇餐點</div>
     </div>
-    <button id="submitBtn" class="submit-btn" onclick="openConfirmView()" disabled>核對訂單</button>
+    <button type="button" id="submitBtn" class="submit-btn" onclick="openConfirmView()" disabled>核對訂單</button>
   </div>
 
   <script>
     const LIFF_ID = '2012794936-ZuKGJyM6';
-    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyuLWSRiP_d4BYo_KDwle4cVGlW0gOF_K73TJQsk39Yw7MVqm8LtrLsSWKWiE6elaDlaw/exec';
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyuLWSRiP_d4BYo_KDwle4cVGlW0gOF_K73TJQsk39Yw7MVqm8LtrLsSWKWiE6e1aDlaw/exec';
 
     let menuItems = [];
     let selectedCategory = 'ALL';
     let cart = {};
     let profile = { displayName: 'LINE 顧客', userId: '' };
 
+    function normalizeCategory(rawCat) {
+      const clean = String(rawCat || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+      return clean || '其他';
+    }
+
     async function initApp() {
+      setupCategoryDelegation();
       try {
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) {
@@ -353,6 +360,18 @@
       }
 
       await loadMenu();
+    }
+
+    function setupCategoryDelegation() {
+      const bar = document.getElementById('categoryBar');
+      bar.addEventListener('click', function (e) {
+        const btn = e.target.closest('.cat-btn');
+        if (!btn) return;
+        const cat = btn.getAttribute('data-cat');
+        if (cat !== null) {
+          selectCategory(cat);
+        }
+      });
     }
 
     async function loadMenu() {
@@ -369,7 +388,11 @@
         }
         if (!data.ok) throw new Error(data.error || '讀取菜單失敗');
 
-        menuItems = data.items || [];
+        menuItems = (data.items || []).map(item => ({
+          ...item,
+          category: normalizeCategory(item.category)
+        }));
+
         if (menuItems.length === 0) {
           document.getElementById('categoryBar').style.display = 'none';
           container.innerHTML = '<div class="status-msg">目前沒有上架品項</div>';
@@ -392,7 +415,7 @@
       const seen = new Set();
       const cats = [];
       menuItems.forEach(item => {
-        const cat = String(item.category || '').trim() || '其他';
+        const cat = normalizeCategory(item.category);
         if (!seen.has(cat)) {
           seen.add(cat);
           cats.push(cat);
@@ -416,17 +439,17 @@
 
       bar.style.display = 'flex';
       const buttons = [
-        `<button class="cat-btn ${selectedCategory === 'ALL' ? 'active' : ''}" onclick="selectCategory('ALL')">全部</button>`,
+        `<button type="button" class="cat-btn ${selectedCategory === 'ALL' ? 'active' : ''}" data-cat="ALL">全部</button>`,
         ...cats.map(cat => {
           const activeClass = selectedCategory === cat ? 'active' : '';
-          return `<button class="cat-btn ${activeClass}" onclick="selectCategory(${JSON.stringify(cat)})">${escapeHtml(cat)}</button>`;
+          return `<button type="button" class="cat-btn ${activeClass}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`;
         })
       ];
       bar.innerHTML = buttons.join('');
     }
 
     function selectCategory(cat) {
-      selectedCategory = cat;
+      selectedCategory = normalizeCategory(cat) === '其他' && cat !== '其他' ? 'ALL' : cat;
       renderCategoryBar();
       renderMenu();
     }
@@ -444,14 +467,14 @@
             ${thumbHtml}
             <div>
               <div class="item-title">${escapeHtml(item.name)}</div>
-              <div class="item-meta">${escapeHtml(item.category || '其他')}</div>
+              <div class="item-meta">${escapeHtml(item.category)}</div>
               <div class="item-price">$${item.price}</div>
             </div>
           </div>
           <div class="qty-box">
-            <button class="qty-btn" onclick="changeQty('${item.id}', -1)">-</button>
+            <button type="button" class="qty-btn" onclick="changeQty('${item.id}', -1)">-</button>
             <span class="qty-num" id="qty-${item.id}">${qty}</span>
-            <button class="qty-btn primary" onclick="changeQty('${item.id}', 1)">+</button>
+            <button type="button" class="qty-btn primary" onclick="changeQty('${item.id}', 1)">+</button>
           </div>
         </div>
       `;
@@ -465,7 +488,7 @@
       const targetCats = selectedCategory === 'ALL' ? cats : [selectedCategory];
 
       container.innerHTML = targetCats.map(cat => {
-        const itemsInCat = menuItems.filter(i => (String(i.category || '').trim() || '其他') === cat);
+        const itemsInCat = menuItems.filter(i => normalizeCategory(i.category) === cat);
         if (itemsInCat.length === 0) return '';
         return `
           <div class="group-block">
