@@ -37,6 +37,7 @@
       font-size: 13px;
       color: #666;
       margin-top: 4px;
+      word-break: break-all;
     }
     .category-bar {
       display: flex;
@@ -284,7 +285,7 @@
   <div class="header">
     <div class="header-top">
       <div style="font-size: 18px; font-weight: 700;">測試點餐小舖</div>
-      <span class="ver-tag">v2.3</span>
+      <span class="ver-tag">v2.3-id</span>
     </div>
     <div id="userInfo" class="user-info">正在初始化 LINE 帳號...</div>
   </div>
@@ -333,7 +334,7 @@
 
   <script>
     const LIFF_ID = '2012794936-ZuKGJyM6';
-    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyuLWSRiP_d4BYo_KDwle4cVGlW0gOF_K73TJQsk39Yw7MVqm8LtrLsSWKWiE6elaDlaw/exec';
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxi6z4blAGBTjx1yeLu3JYuu3AiFsh1iIvFaufOMa07_MLp0cZEvEsQEYPUoILa2b9pjg/exec';
 
     let menuItems = [];
     let selectedCategory = 'ALL';
@@ -354,7 +355,8 @@
           return;
         }
         profile = await liff.getProfile();
-        document.getElementById('userInfo').textContent = `點餐顧客：${profile.displayName}`;
+        document.getElementById('userInfo').textContent =
+          `點餐顧客：${profile.displayName} | User ID：${profile.userId}`;
       } catch (err) {
         document.getElementById('userInfo').textContent = `LIFF 提示：${err && err.message ? err.message : err}`;
       }
